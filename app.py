@@ -109,4 +109,5 @@ else:
         with row[1]:
             if st.button("🗑", key=f"delete_{idx}"):
                 st.session_state.itinerary.pop(idx)
-                st.experimental_rerun()
+                st.rerun()
+
