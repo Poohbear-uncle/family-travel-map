@@ -151,7 +151,6 @@ st.divider()
 st.subheader("📄 PDF 출력 (큰누나 인쇄용)")
 st.caption("지도 + 전체 일정이 포함된 A4 2페이지 PDF")
 
-# 🔹 버튼은 항상 보이게
 if st.button("📥 PDF 생성", use_container_width=True):
 
     if not st.session_state.itinerary:
@@ -161,20 +160,19 @@ if st.button("📥 PDF 생성", use_container_width=True):
             pdf_path = os.path.join(tmp, "family_trip.pdf")
             map_img_path = os.path.join(tmp, "map.png")
 
-            # 1️⃣ 정적 지도 이미지 생성
-            generate_static_map(
+            # 🔹 지도 생성 (실패해도 계속 진행)
+            map_result = generate_static_map(
                 st.session_state.itinerary,
                 map_img_path
             )
 
-            # 2️⃣ PDF 생성 (지도 포함)
+            # 🔹 PDF 생성
             generate_pdf(
                 itinerary=st.session_state.itinerary,
-                map_image_path=map_img_path,
+                map_image_path=map_result,  # None이면 자동으로 지도 제외
                 output_path=pdf_path
             )
 
-            # 3️⃣ 다운로드 버튼
             with open(pdf_path, "rb") as f:
                 st.download_button(
                     label="📄 PDF 다운로드",
