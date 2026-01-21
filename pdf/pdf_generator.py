@@ -1,4 +1,3 @@
-# 1️⃣ import
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Image
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -7,41 +6,29 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 import os
 
-# 2️⃣ 한글 폰트 등록 (맨 위!)
-pdfmetrics.registerFont(
-    TTFont("Korean", "fonts/NotoSansKR-Regular.ttf")
-)
+pdfmetrics.registerFont(TTFont("Korean", "fonts/NotoSansKR-Regular.ttf"))
 
-# 3️⃣ generate_pdf 함수
 def generate_pdf(itinerary, map_image_path, output_path):
     doc = SimpleDocTemplate(output_path, pagesize=A4)
-
-    style = ParagraphStyle(
-        "Korean",
-        fontName="Korean",
-        fontSize=11,
-        leading=15
-    )
+    style = ParagraphStyle("k", fontName="Korean", fontSize=12, leading=16)
+    title = ParagraphStyle("t", fontName="Korean", fontSize=22, leading=26)
 
     elements = []
-    elements.append(Paragraph("가족 여행 일정", style))
+    elements.append(Paragraph("가족 여행 일정", title))
 
-    # 📍 지도 이미지 (있을 때만)
     if map_image_path and os.path.exists(map_image_path):
         elements.append(Image(map_image_path, width=16*cm, height=10*cm))
     else:
+        elements.append(Paragraph("📌 지도 이미지는 네트워크 문제로 생략되었습니다.", style))
+
+    for i, item in enumerate(itinerary,1):
         elements.append(
             Paragraph(
-                "📌 지도 이미지는 네트워크 환경으로 인해 포함되지 않았습니다.",
+                f"<b>{i}. {item['name_ko']}</b> ({item.get('name_ja','')})<br/>"
+                f"🕒 {item.get('start','')} ~ {item.get('end','')}<br/>"
+                f"{item.get('note','')}",
                 style
             )
         )
 
-    # 일정 목록
-    for i, item in enumerate(itinerary, 1):
-        elements.append(
-            Paragraph(f"{i}. {item['name_ko']}<br/>{item.get('note','')}", style)
-        )
-
-    # 4️⃣ 반드시 맨 마지막
     doc.build(elements)

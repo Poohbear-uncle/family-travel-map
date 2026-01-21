@@ -1,31 +1,25 @@
 import requests
+from PIL import Image
+from io import BytesIO
 
 def generate_static_map(itinerary, output_path):
     if not itinerary:
-        return None
+        return
 
-    base_url = "https://staticmap.openstreetmap.de/staticmap.php"
+    center = f"{itinerary[0]['lat']},{itinerary[0]['lng']}"
+    markers = "|".join([f"{i['lat']},{i['lng']}" for i in itinerary])
 
-    markers = []
-    for item in itinerary:
-        markers.append(f"{item['lat']},{item['lng']},blue-pushpin")
-
+    url = "https://staticmap.openstreetmap.de/staticmap.php"
     params = {
-        "size": "900x600",
-        "maptype": "mapnik",
-        "markers": "|".join(markers)
+        "center": center,
+        "zoom": 11,
+        "size": "800x500",
+        "markers": markers
     }
 
     try:
-        res = requests.get(base_url, params=params, timeout=10)
-        res.raise_for_status()
-
-        with open(output_path, "wb") as f:
-            f.write(res.content)
-
-        return output_path
-
-    except Exception as e:
-        # 🚑 Cloud 환경에서 매우 중요
-        print("⚠️ 정적 지도 생성 실패:", e)
-        return None
+        r = requests.get(url, params=params, timeout=10)
+        img = Image.open(BytesIO(r.content))
+        img.save(output_path)
+    except:
+        pass

@@ -2,5 +2,6 @@ streamlit
 streamlit-folium
 folium
 requests
+supabase
 reportlab
-pillow
+Pillow
