@@ -36,6 +36,9 @@ def generate_pdf(itinerary, map_image_path, output_path):
     elements.append(Spacer(1, 12))
 
     if map_image_path and os.path.exists(map_image_path):
+        elements.append(Image(map_image_path, width=16*cm, height=10*cm))
+
+    if map_image_path and os.path.exists(map_image_path):
         elements.append(
             Image(map_image_path, width=16*cm, height=10*cm)
         )
@@ -63,3 +66,4 @@ def generate_pdf(itinerary, map_image_path, output_path):
         elements.append(Spacer(1, 10))
 
     doc.build(elements)
+
