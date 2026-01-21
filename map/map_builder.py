@@ -7,6 +7,7 @@ def build_map(
     center=(33.5902, 130.4017),
     zoom=7
 ):
+
     m = folium.Map(
         location=center,
         zoom_start=zoom,
@@ -47,5 +48,6 @@ def build_map(
             tooltip="핀을 드래그하여 위치를 미세 조정하세요",
             icon=folium.Icon(color="orange", icon="star")
         ).add_to(m)
+
 
     return m
