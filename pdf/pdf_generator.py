@@ -1,11 +1,23 @@
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
+from pathlib import Path
 
 def generate_pdf(schedule):
     path = "travel_map.pdf"
-    doc = SimpleDocTemplate(path, pagesize=A4)
+
+    # ✅ 한글 폰트 등록
+    font_path = Path("fonts/NotoSansKR-Regular.ttf")
+    pdfmetrics.registerFont(TTFont("NotoSansKR", str(font_path)))
+
     styles = getSampleStyleSheet()
+    styles["Normal"].fontName = "NotoSansKR"
+    styles["Title"].fontName = "NotoSansKR"
+    styles["Heading2"].fontName = "NotoSansKR"
+
+    doc = SimpleDocTemplate(path, pagesize=A4)
     story = []
 
     story.append(Paragraph("가족 일본여행 일정 요약", styles["Title"]))
