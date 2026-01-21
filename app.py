@@ -1,14 +1,19 @@
 import streamlit as st
 from streamlit_folium import st_folium
 from map.map_builder import build_map
-from utils.geocode import geocode_place
+from pdf.pdf_generator import generate_pdf
+import tempfile, os
 
 # -------------------------
 # 기본 설정
 # -------------------------
-st.set_page_config(page_title="가족 여행 일정 지도", layout="wide")
+st.set_page_config(
+    page_title="가족 여행 일정 지도",
+    layout="wide"
+)
+
 st.title("🧳 가족 여행 일정 지도")
-st.caption("검색 → 핀 드래그 → 위치 확정 → 일정 추가")
+st.caption("왼쪽에서 일정 입력 → 오른쪽 지도에서 위치 지정 → 아래에서 일정 관리")
 
 # -------------------------
 # 세션 상태 초기화
@@ -16,109 +21,107 @@ st.caption("검색 → 핀 드래그 → 위치 확정 → 일정 추가")
 if "itinerary" not in st.session_state:
     st.session_state.itinerary = []
 
-if "map_center" not in st.session_state:
-    st.session_state.map_center = (33.5902, 130.4017)
+if "selected_lat" not in st.session_state:
+    st.session_state.selected_lat = None
+    st.session_state.selected_lng = None
 
-if "temp_location" not in st.session_state:
-    st.session_state.temp_location = None
-
-if "selected_location" not in st.session_state:
-    st.session_state.selected_location = None
+if "edit_index" not in st.session_state:
+    st.session_state.edit_index = None
 
 # -------------------------
-# 레이아웃
+# 상단 레이아웃
 # -------------------------
 left, right = st.columns([1, 2])
 
 # =========================
-# 왼쪽: 일정 입력
+# 왼쪽: 일정 입력 / 수정
 # =========================
 with left:
-    st.subheader("➕ 일정 입력")
+    st.subheader("✏️ 일정 입력 / 수정")
 
-    # 🔍 장소 검색
-    search_query = st.text_input(
-        "🔍 장소 검색 (한글 / 일본어)",
-        placeholder="예: 후쿠오카 공항, 糸島, 雷山千如寺"
-    )
-
-    if st.button("📡 검색 후 임시 핀 생성", use_container_width=True):
-        result = geocode_place(search_query)
-        if result:
-            st.session_state.temp_location = result
-            st.session_state.map_center = result
-            st.session_state.selected_location = None
-            st.success("임시 핀이 생성되었습니다. 핀을 드래그해 주세요.")
-        else:
-            st.warning("검색 결과를 찾을 수 없습니다.")
-
-    st.divider()
-
-    name_ko = st.text_input("장소명 (한글)")
-    name_ja = st.text_input("장소명 (일본어, 선택)")
-    start = st.text_input("시작 시간 (선택)")
-    end = st.text_input("종료 시간 (선택)")
-    note = st.text_area("메모", height=80)
-
-    st.markdown("### 📍 현재 선택된 위치")
-    if st.session_state.selected_location:
-        lat, lng = st.session_state.selected_location
-        st.success(f"위도 {lat:.5f}, 경도 {lng:.5f}")
+    # 수정 모드면 기존 값 로드
+    if st.session_state.edit_index is not None:
+        item = st.session_state.itinerary[st.session_state.edit_index]
+        name_ko = st.text_input("장소명 (한글)", value=item["name_ko"])
+        name_ja = st.text_input("장소명 (일본어, 선택)", value=item.get("name_ja", ""))
+        start = st.text_input("시작 시간 (선택)", value=item.get("start", ""))
+        end = st.text_input("종료 시간 (선택)", value=item.get("end", ""))
+        note = st.text_area("메모 (선택)", value=item.get("note", ""), height=80)
+        st.session_state.selected_lat = item["lat"]
+        st.session_state.selected_lng = item["lng"]
     else:
-        st.info("오른쪽 지도에서 핀을 드래그한 후 위치를 확정하세요.")
+        name_ko = st.text_input("장소명 (한글)")
+        name_ja = st.text_input("장소명 (일본어, 선택)")
+        start = st.text_input("시작 시간 (선택)")
+        end = st.text_input("종료 시간 (선택)")
+        note = st.text_area("메모 (선택)", height=80)
 
-    if st.button("📌 일정 추가", use_container_width=True):
-        if not name_ko:
-            st.warning("장소명(한글)은 필수입니다.")
-        elif not st.session_state.selected_location:
-            st.warning("위치를 먼저 확정하세요.")
-        else:
-            lat, lng = st.session_state.selected_location
-            st.session_state.itinerary.append({
-                "name_ko": name_ko,
-                "name_ja": name_ja,
-                "start": start,
-                "end": end,
-                "note": note,
-                "lat": lat,
-                "lng": lng
-            })
-            st.session_state.selected_location = None
-            st.session_state.temp_location = None
-            st.success("일정이 추가되었습니다.")
+    st.markdown("### 📍 선택된 위치")
+    if st.session_state.selected_lat:
+        st.success(
+            f"위도 {st.session_state.selected_lat:.5f}, "
+            f"경도 {st.session_state.selected_lng:.5f}"
+        )
+    else:
+        st.info("오른쪽 지도에서 위치를 지정하세요.")
+
+    # 버튼 영역
+    if st.session_state.edit_index is None:
+        if st.button("📌 일정 추가", use_container_width=True):
+            if not name_ko or not st.session_state.selected_lat:
+                st.warning("장소명과 위치는 필수입니다.")
+            else:
+                st.session_state.itinerary.append({
+                    "name_ko": name_ko,
+                    "name_ja": name_ja,
+                    "start": start,
+                    "end": end,
+                    "note": note,
+                    "lat": st.session_state.selected_lat,
+                    "lng": st.session_state.selected_lng
+                })
+                st.session_state.selected_lat = None
+                st.session_state.selected_lng = None
+                st.success("일정이 추가되었습니다.")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 수정 저장", use_container_width=True):
+                st.session_state.itinerary[st.session_state.edit_index] = {
+                    "name_ko": name_ko,
+                    "name_ja": name_ja,
+                    "start": start,
+                    "end": end,
+                    "note": note,
+                    "lat": st.session_state.selected_lat,
+                    "lng": st.session_state.selected_lng
+                }
+                st.session_state.edit_index = None
+                st.success("수정되었습니다.")
+                st.rerun()
+        with col2:
+            if st.button("❌ 수정 취소", use_container_width=True):
+                st.session_state.edit_index = None
+                st.rerun()
 
 # =========================
 # 오른쪽: 지도
 # =========================
 with right:
-    st.subheader("🗺️ 지도 (핀 드래그 방식)")
-
+    st.subheader("🗺️ 지도")
     map_data = st_folium(
-        build_map(
-            itinerary=st.session_state.itinerary,
-            temp_location=st.session_state.temp_location,
-            center=st.session_state.map_center
-        ),
-        height=520,
+        build_map(st.session_state.itinerary),
+        height=500,
         use_container_width=True
     )
 
-    # ✅ 핀 드래그 후 좌표 수신
-    if map_data and map_data.get("last_object_clicked"):
-        lat = map_data["last_object_clicked"]["lat"]
-        lng = map_data["last_object_clicked"]["lng"]
-        st.session_state.temp_location = (lat, lng)
-
-    # 📌 위치 확정
-    if st.button("📍 이 위치로 확정", use_container_width=True):
-        if st.session_state.temp_location:
-            st.session_state.selected_location = st.session_state.temp_location
-            st.success("위치가 확정되었습니다.")
-        else:
-            st.warning("먼저 임시 핀을 생성하세요.")
+    if map_data and map_data.get("center"):
+        if st.button("📍 현재 화면 중심을 위치로 선택", use_container_width=True):
+            st.session_state.selected_lat = map_data["center"]["lat"]
+            st.session_state.selected_lng = map_data["center"]["lng"]
 
 # =========================
-# 전체 일정
+# 전체 일정 리스트
 # =========================
 st.divider()
 st.subheader("📋 전체 일정")
@@ -126,58 +129,52 @@ st.subheader("📋 전체 일정")
 if not st.session_state.itinerary:
     st.info("아직 등록된 일정이 없습니다.")
 else:
-    for idx, item in enumerate(st.session_state.itinerary):
-        cols = st.columns([6, 1])
+    for i, item in enumerate(st.session_state.itinerary):
+        cols = st.columns([6, 1, 1, 1, 1])
         with cols[0]:
-            st.markdown(f"""
-            **📍 {item['name_ko']}** {f"({item['name_ja']})" if item['name_ja'] else ""}  
-            🕒 {item['start']} ~ {item['end']}  
-            {item['note']}
-            """)
+            st.markdown(
+                f"**📍 {item['name_ko']}** "
+                f"{('(' + item['name_ja'] + ')') if item.get('name_ja') else ''}  \n"
+                f"🕒 {item.get('start','')} ~ {item.get('end','')}  \n"
+                f"{item.get('note','')}"
+            )
         with cols[1]:
-            if st.button("🗑", key=f"del_{idx}"):
-                st.session_state.itinerary.pop(idx)
+            if st.button("✏️", key=f"edit_{i}"):
+                st.session_state.edit_index = i
+                st.rerun()
+        with cols[2]:
+            if st.button("▲", key=f"up_{i}") and i > 0:
+                st.session_state.itinerary[i-1], st.session_state.itinerary[i] = \
+                    st.session_state.itinerary[i], st.session_state.itinerary[i-1]
+                st.rerun()
+        with cols[3]:
+            if st.button("▼", key=f"down_{i}") and i < len(st.session_state.itinerary)-1:
+                st.session_state.itinerary[i+1], st.session_state.itinerary[i] = \
+                    st.session_state.itinerary[i], st.session_state.itinerary[i+1]
+                st.rerun()
+        with cols[4]:
+            if st.button("🗑", key=f"del_{i}"):
+                st.session_state.itinerary.pop(i)
                 st.rerun()
 
 # =========================
-# PDF 출력 (항상 보이게!)
+# PDF 출력
 # =========================
-from pdf.pdf_generator import generate_pdf
-from map.static_map import generate_static_map
-import tempfile
-import os
-
 st.divider()
 st.subheader("📄 PDF 출력 (큰누나 인쇄용)")
-st.caption("지도 + 전체 일정이 포함된 A4 2페이지 PDF")
 
 if st.button("📥 PDF 생성", use_container_width=True):
-
-    if not st.session_state.itinerary:
-        st.warning("먼저 일정을 하나 이상 추가해 주세요.")
-    else:
-        with tempfile.TemporaryDirectory() as tmp:
-            pdf_path = os.path.join(tmp, "family_trip.pdf")
-            map_img_path = os.path.join(tmp, "map.png")
-
-            # 🔹 지도 생성 (실패해도 계속 진행)
-            map_result = generate_static_map(
-                st.session_state.itinerary,
-                map_img_path
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf_path = os.path.join(tmp, "family_trip.pdf")
+        generate_pdf(
+            itinerary=st.session_state.itinerary,
+            map_image_path=None,  # 지도 실패 대비
+            output_path=pdf_path
+        )
+        with open(pdf_path, "rb") as f:
+            st.download_button(
+                "📄 PDF 다운로드",
+                f,
+                file_name="가족여행일정.pdf",
+                mime="application/pdf"
             )
-
-            # 🔹 PDF 생성
-            generate_pdf(
-                itinerary=st.session_state.itinerary,
-                map_image_path=map_result,  # None이면 자동으로 지도 제외
-                output_path=pdf_path
-            )
-
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="📄 PDF 다운로드",
-                    data=f,
-                    file_name="가족여행일정.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )

@@ -1,69 +1,48 @@
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
-)
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import cm
-
 import os
 
 def generate_pdf(itinerary, map_image_path, output_path):
-    pdfmetrics.registerFont(
-        TTFont("Nanum", "fonts/NanumGothic.ttf")
-    )
-
+    doc = SimpleDocTemplate(output_path, pagesize=A4)
     styles = getSampleStyleSheet()
-    styles["Normal"].fontName = "Nanum"
-    styles["Title"].fontName = "Nanum"
-
-    doc = SimpleDocTemplate(
-        output_path,
-        pagesize=A4,
-        rightMargin=2*cm,
-        leftMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
-    )
-
     elements = []
 
-    # 1️⃣ 지도 페이지
-    elements.append(
-        Paragraph("🗺️ 가족 여행 전체 지도", styles["Title"])
+    title = Paragraph(
+        "가족 자유여행 일정",
+        ParagraphStyle(
+            "title",
+            fontSize=20,
+            spaceAfter=20
+        )
     )
-    elements.append(Spacer(1, 12))
+    elements.append(title)
 
+    # ---- 지도 영역 ----
     if map_image_path and os.path.exists(map_image_path):
         elements.append(Image(map_image_path, width=16*cm, height=10*cm))
-
-    if map_image_path and os.path.exists(map_image_path):
-        elements.append(
-            Image(map_image_path, width=16*cm, height=10*cm)
-        )
     else:
         elements.append(
-            Paragraph("지도 이미지 없음", styles["Normal"])
+            Paragraph(
+                "📌 지도 이미지 안내<br/>"
+                "네트워크 환경 문제로 지도 이미지를 불러오지 못했습니다.<br/>"
+                "아래 일정 정보는 정상적으로 확인 및 인쇄하실 수 있습니다.",
+                styles["Normal"]
+            )
         )
 
     elements.append(PageBreak())
 
-    # 2️⃣ 일정 페이지
-    elements.append(
-        Paragraph("📋 여행 일정 요약", styles["Title"])
-    )
-    elements.append(Spacer(1, 12))
-
-    for item in itinerary:
+    # ---- 일정 상세 ----
+    for idx, item in enumerate(itinerary, start=1):
         text = f"""
-        <b>📍 {item['name_ko']}</b>
-        {f" ({item['name_ja']})" if item.get('name_ja') else ""}<br/>
+        <b>{idx}. {item['name_ko']}</b>
+        {f"({item['name_ja']})" if item.get("name_ja") else ""}<br/>
         🕒 {item.get('start','')} ~ {item.get('end','')}<br/>
         {item.get('note','')}
         """
         elements.append(Paragraph(text, styles["Normal"]))
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 0.7*cm))
 
     doc.build(elements)
-
