@@ -1,0 +1,16 @@
+[
+  {
+    "id": "day1_airport",
+    "day": 1,
+    "title_ko": "후쿠오카 공항 입국",
+    "title_ja": "福岡空港",
+    "type": "이동",
+    "lat": 33.5859,
+    "lon": 130.4506,
+    "start_time": "10:30",
+    "end_time": null,
+    "importance": "반드시",
+    "phone": "",
+    "memo": "입국 후 천천히 이동"
+  }
+]
