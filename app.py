@@ -29,6 +29,10 @@ if "temp_location" not in st.session_state:
 if "edit_index" not in st.session_state:
     st.session_state.edit_index = None
 
+# ✅ 기본 지도 중심 = 후쿠오카
+if "map_center" not in st.session_state:
+    st.session_state.map_center = (33.5902, 130.4017)
+
 # =================================================
 # 레이아웃
 # =================================================
@@ -45,15 +49,26 @@ with left:
         item = st.session_state.itinerary[st.session_state.edit_index]
         default_name_ko = item["name_ko"]
         default_name_ja = item.get("name_ja", "")
+        default_start = item.get("start", "")
+        default_end = item.get("end", "")
         default_note = item.get("note", "")
     else:
         default_name_ko = ""
         default_name_ja = ""
+        default_start = ""
+        default_end = ""
         default_note = ""
 
     name_ko = st.text_input("장소명 (한글)", value=default_name_ko)
     name_ja = st.text_input("장소명 (일본어, 선택)", value=default_name_ja)
-    note = st.text_area("메모", value=default_note, height=80)
+
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        start_time = st.text_input("시작 시간 (선택)", value=default_start)
+    with col_t2:
+        end_time = st.text_input("종료 시간 (선택)", value=default_end)
+
+    note = st.text_area("메모 (선택)", value=default_note, height=80)
 
     if st.session_state.selected_lat:
         st.success(
@@ -72,12 +87,14 @@ with left:
                 st.session_state.itinerary.append({
                     "name_ko": name_ko,
                     "name_ja": name_ja,
+                    "start": start_time,
+                    "end": end_time,
                     "note": note,
                     "lat": st.session_state.selected_lat,
                     "lng": st.session_state.selected_lng
                 })
                 st.session_state.selected_lat = None
-                st.session_state.temp_location = None
+                st.session_state.temp_location = None  # ✅ 임시 핀 제거
                 st.success("일정이 추가되었습니다.")
                 st.rerun()
     else:
@@ -88,18 +105,22 @@ with left:
                 st.session_state.itinerary[i].update({
                     "name_ko": name_ko,
                     "name_ja": name_ja,
+                    "start": start_time,
+                    "end": end_time,
                     "note": note,
                     "lat": st.session_state.selected_lat,
                     "lng": st.session_state.selected_lng
                 })
                 st.session_state.edit_index = None
                 st.session_state.selected_lat = None
+                st.session_state.temp_location = None  # ✅ 임시 핀 제거
                 st.success("수정되었습니다.")
                 st.rerun()
         with col2:
             if st.button("❌ 수정 취소", use_container_width=True):
                 st.session_state.edit_index = None
                 st.session_state.selected_lat = None
+                st.session_state.temp_location = None
                 st.rerun()
 
 # =================================================
@@ -118,21 +139,22 @@ with right:
         ).json()
 
         if res:
-            st.session_state.temp_location = (
-                float(res[0]["lat"]),
-                float(res[0]["lon"])
-            )
+            lat, lng = float(res[0]["lat"]), float(res[0]["lon"])
+            st.session_state.temp_location = (lat, lng)
+            st.session_state.map_center = (lat, lng)
             st.info("검색 결과 위치에 임시 핀을 표시했습니다.")
 
     map_data = st_folium(
         build_map(
             itinerary=st.session_state.itinerary,
-            temp_location=st.session_state.temp_location
+            temp_location=st.session_state.temp_location,
+            center=st.session_state.map_center
         ),
         height=520,
         use_container_width=True
     )
 
+    # 핀 클릭/드래그 결과 수신
     if map_data and map_data.get("last_object_clicked"):
         st.session_state.temp_location = (
             map_data["last_object_clicked"]["lat"],
@@ -143,6 +165,7 @@ with right:
         if st.session_state.temp_location:
             st.session_state.selected_lat, st.session_state.selected_lng = \
                 st.session_state.temp_location
+            st.session_state.temp_location = None  # ✅ 빨간 핀 제거
             st.success("위치가 확정되었습니다.")
 
 # =================================================
@@ -153,11 +176,18 @@ st.subheader("📋 전체 일정")
 
 for i, item in enumerate(st.session_state.itinerary):
     cols = st.columns([6, 1, 1, 1, 1])
-    cols[0].markdown(f"**{i+1}. {item['name_ko']}**  \n{item.get('note','')}")
+    time_text = ""
+    if item.get("start") or item.get("end"):
+        time_text = f"🕒 {item.get('start','')} ~ {item.get('end','')}"
+
+    cols[0].markdown(
+        f"**{i+1}. {item['name_ko']}**  \n{time_text}  \n{item.get('note','')}"
+    )
     if cols[1].button("✏️", key=f"edit_{i}"):
         st.session_state.edit_index = i
         st.session_state.selected_lat = item["lat"]
         st.session_state.selected_lng = item["lng"]
+        st.session_state.map_center = (item["lat"], item["lng"])
         st.rerun()
     if cols[2].button("▲", key=f"up_{i}") and i > 0:
         st.session_state.itinerary[i-1], st.session_state.itinerary[i] = \
@@ -172,7 +202,7 @@ for i, item in enumerate(st.session_state.itinerary):
         st.rerun()
 
 # =================================================
-# PDF 출력 (항상 하단)
+# PDF 출력
 # =================================================
 st.divider()
 st.subheader("📄 PDF 출력 (큰누나 인쇄용)")
