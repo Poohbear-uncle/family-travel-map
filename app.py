@@ -11,8 +11,8 @@ from pdf.pdf_generator import generate_pdf
 # Supabase 연결
 # ===============================
 supabase = create_client(
-    st.secrets["https://lwcmkumzzfbdzlcutpbe.supabase.co"],
-    st.secrets["sb_publishable_9oxrCeIpwmkm9J4n2r7Fhg_-m4JM6W6"]
+    st.secrets["SUPABASE_URL"],
+    st.secrets["SUPABASE_KEY"]
 )
 
 def load_itinerary():
