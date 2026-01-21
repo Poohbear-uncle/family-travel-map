@@ -75,7 +75,9 @@ with left:
 
 # ===== 오른쪽: 지도 =====
 with right:
-    st.subheader("🗺️ 지도에서 위치 선택")
+    st.subheader("🗺️ 지도에서 위치 지정")
+
+    st.caption("지도를 움직여 원하는 장소를 화면 가운데에 둔 뒤 버튼을 누르세요.")
 
     map_data = st_folium(
         build_map(st.session_state.itinerary),
@@ -83,9 +85,14 @@ with right:
         use_container_width=True
     )
 
-    if map_data and map_data.get("last_clicked"):
-        st.session_state.selected_lat = map_data["last_clicked"]["lat"]
-        st.session_state.selected_lng = map_data["last_clicked"]["lng"]
+    if map_data and map_data.get("center"):
+        center_lat = map_data["center"]["lat"]
+        center_lng = map_data["center"]["lng"]
+
+        if st.button("📍 현재 화면 중심을 위치로 선택", use_container_width=True):
+            st.session_state.selected_lat = center_lat
+            st.session_state.selected_lng = center_lng
+
 
 # -------------------------
 # 전체 일정 (리스트형)
@@ -111,3 +118,36 @@ else:
                 st.session_state.itinerary.pop(idx)
                 st.rerun()
 
+# =========================
+# PDF 출력 (항상 하단)
+# =========================
+st.divider()
+st.subheader("📄 PDF 출력")
+st.caption("큰누나용 인쇄 파일 (A4, 2페이지)")
+
+try:
+    from pdf.pdf_generator import generate_pdf
+    import tempfile
+    import os
+
+    if st.button("📥 PDF로 저장하기", use_container_width=True):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_path = os.path.join(tmpdir, "family_trip.pdf")
+
+            generate_pdf(
+                itinerary=st.session_state.itinerary,
+                map_image_path=None,
+                output_path=pdf_path
+            )
+
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="📄 PDF 다운로드",
+                    data=f,
+                    file_name="가족여행일정.pdf",
+                    mime="application/pdf"
+                )
+
+except Exception as e:
+    st.error("❌ PDF 모듈 로딩 실패")
+    st.code(str(e))
