@@ -138,3 +138,48 @@ else:
             if st.button("🗑", key=f"del_{idx}"):
                 st.session_state.itinerary.pop(idx)
                 st.rerun()
+
+# =========================
+# PDF 출력 (항상 보이게!)
+# =========================
+from pdf.pdf_generator import generate_pdf
+from map.static_map import generate_static_map
+import tempfile
+import os
+
+st.divider()
+st.subheader("📄 PDF 출력 (큰누나 인쇄용)")
+st.caption("지도 + 전체 일정이 포함된 A4 2페이지 PDF")
+
+# 🔹 버튼은 항상 보이게
+if st.button("📥 PDF 생성", use_container_width=True):
+
+    if not st.session_state.itinerary:
+        st.warning("먼저 일정을 하나 이상 추가해 주세요.")
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_path = os.path.join(tmp, "family_trip.pdf")
+            map_img_path = os.path.join(tmp, "map.png")
+
+            # 1️⃣ 정적 지도 이미지 생성
+            generate_static_map(
+                st.session_state.itinerary,
+                map_img_path
+            )
+
+            # 2️⃣ PDF 생성 (지도 포함)
+            generate_pdf(
+                itinerary=st.session_state.itinerary,
+                map_image_path=map_img_path,
+                output_path=pdf_path
+            )
+
+            # 3️⃣ 다운로드 버튼
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="📄 PDF 다운로드",
+                    data=f,
+                    file_name="가족여행일정.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
