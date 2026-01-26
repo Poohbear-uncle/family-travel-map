@@ -104,36 +104,88 @@ with left:
 # 오른쪽: 검색 + 핀 드래그
 # ===============================
 with right:
-    query = st.text_input("🔍 장소 검색")
+    st.subheader("🗺 지도 & 장소 검색")
 
-    if query:
-        r = requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": query, "format": "json", "limit": 1},
-            headers={"User-Agent":"family-map"}
-        ).json()
-        if r:
-            st.session_state.temp_location = (float(r[0]["lat"]), float(r[0]["lon"]))
+    # -------------------------------
+    # 장소 검색
+    # -------------------------------
+    query = st.text_input("🔍 장소 검색", key="search_query")
 
+    if st.button("🔎 검색", key="search_button"):
+        if not query.strip():
+            st.warning("검색어를 입력하세요.")
+        else:
+            try:
+                r = requests.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params={
+                        "q": query,
+                        "format": "json",
+                        "limit": 1
+                    },
+                    headers={"User-Agent": "family-travel-map"}
+                ).json()
+
+                if r:
+                    st.session_state.temp_location = (
+                        float(r[0]["lat"]),
+                        float(r[0]["lon"])
+                    )
+                else:
+                    st.warning("검색 결과를 찾을 수 없습니다.")
+
+            except Exception as e:
+                st.error("검색 중 오류가 발생했습니다.")
+
+    # -------------------------------
+    # 지도 중심 결정
+    # -------------------------------
+    map_center_dynamic = (
+        st.session_state.temp_location
+        if st.session_state.temp_location
+        else map_center
+    )
+
+    # -------------------------------
+    # 지도 표시
+    # -------------------------------
     map_data = st_folium(
         build_map(
             st.session_state.itinerary,
             st.session_state.temp_location,
-            center=map_center
+            center=map_center_dynamic
         ),
         height=520,
         use_container_width=True
     )
 
+    # -------------------------------
+    # 지도 클릭 → 임시 위치 설정
+    # -------------------------------
     if map_data and map_data.get("last_object_clicked"):
         st.session_state.temp_location = (
             map_data["last_object_clicked"]["lat"],
             map_data["last_object_clicked"]["lng"]
         )
 
-    if st.button("✅ 이 위치로 확정"):
-        st.session_state.selected_lat, st.session_state.selected_lng = st.session_state.temp_location
-        st.session_state.temp_location = None
+    # -------------------------------
+    # 위치 확정
+    # -------------------------------
+    if st.session_state.temp_location:
+        st.info(
+            f"선택된 위치: "
+            f"{st.session_state.temp_location[0]:.5f}, "
+            f"{st.session_state.temp_location[1]:.5f}"
+        )
+
+        if st.button("✅ 이 위치로 확정", key="confirm_location"):
+            st.session_state.selected_lat, st.session_state.selected_lng = (
+                st.session_state.temp_location
+            )
+            st.session_state.temp_location = None
+            st.success("위치가 확정되었습니다.")
+            st.rerun()
+
 
 # ===============================
 # 일정 리스트
